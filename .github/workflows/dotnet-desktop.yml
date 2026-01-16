@@ -1,0 +1,61 @@
+name: .NET Core Web API CI/CD
+
+# 觸發條件
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    runs-on: windows-latest
+
+    env:
+      # 專案資訊
+      Solution_Name: CICDTest.sln                   # 解決方案檔案
+      Test_Project_Path: CICDTest.Tests\CICDTest.Tests.csproj   # 單元測試專案路徑
+
+    steps:
+    # 1. 取得原始碼
+    - name: 取得原始碼
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # 2. 安裝 .NET
+    - name: 安裝 .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # 3. 還原 NuGet 套件
+    - name: 還原 NuGet 套件
+      run: dotnet restore ${{ env.Solution_Name }}
+
+    # 4. 編譯專案
+    - name: 編譯專案
+      run: dotnet build ${{ env.Solution_Name }} --configuration ${{ matrix.configuration }} --no-restore
+
+    # 5. 執行單元測試
+    - name: 執行單元測試
+      run: dotnet test ${{ env.Test_Project_Path }} --configuration ${{ matrix.configuration }} --no-build
+
+    # 6. 發佈 Web API (可選)
+    - name: 發佈 Web API
+      run: |
+        dotnet publish CICDTest\CICDTest.csproj `
+          -c ${{ matrix.configuration }} `
+          -o ${{ github.workspace }}/publish
+          
+    # 7. 上傳發佈檔案作為工作流程產物
+    - name: 上傳發佈檔案
+      uses: actions/upload-artifact@v4
+      with:
+        name: CICDTest_WebAPI
+        path: ${{ github.workspace }}/publish
